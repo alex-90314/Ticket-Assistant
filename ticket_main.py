@@ -14,7 +14,7 @@ AUTHORIZE = int(os.environ["SUPPORT"])
 
 
 #password release
-@tree.command(name="release-game-password", description="[STAFF ONLY] Releases the game password to the user.")
+@tree.command(name="Release-password", description="[STAFF ONLY] Releases the game password to the user.")
 async def release_password_command(interaction: discord.Interaction):
     
     # SECURITY 
