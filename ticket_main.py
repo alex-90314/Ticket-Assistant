@@ -47,7 +47,7 @@ async def on_guild_channel_create(channel):
         return
     
     # # Check if new channel is in the ticket category
-    if channel.category_id != TICKET_CATEGORY_ID:
+    if channel.category_id != os.environ["CAT_ID"]:
         return
 
     try:
