@@ -40,7 +40,7 @@ async def release_password_command(interaction: discord.Interaction):
 
 
 #ticket rename
-@bot.event
+@client.event
 async def on_guild_channel_create(channel):
     # Only look at text channels
     if not isinstance(channel, discord.TextChannel):
