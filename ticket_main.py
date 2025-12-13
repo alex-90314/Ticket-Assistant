@@ -10,7 +10,7 @@ intents.members = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
-AUTHORIZE = os.environ["SUPPORT"]
+AUTHORIZE = int(os.environ["SUPPORT"])
 
 
 #password release
@@ -20,12 +20,12 @@ async def release_password_command(interaction: discord.Interaction):
     # SECURITY 
     is_authorized = any(role.id == AUTHORIZE for role in interaction.user.roles)
 
-    # if not is_authorized:
-    #     await interaction.response.send_message(
-    #         "You do not have permission to use this command.", 
-    #         ephemeral=True # Makes the error message visible only to the staff member who used it
-    #     )
-    #     return
+    if not is_authorized:
+        await interaction.response.send_message(
+            "You do not have permission to use this command.", 
+            ephemeral=True # Makes the error message visible only to the staff member who used it
+        )
+        return
 
     await interaction.response.defer(ephemeral=False) 
 
@@ -47,7 +47,7 @@ async def on_guild_channel_create(channel):
         return
     
     # # Check if new channel is in the ticket category
-    if channel.category_id != os.environ["CAT_ID"]:
+    if channel.category_id != int(os.environ["CAT_ID"]):
         return
 
     try:
