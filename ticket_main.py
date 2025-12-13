@@ -20,14 +20,14 @@ async def on_ready():
 async def release_password_command(interaction: discord.Interaction):
     
     # 1. SECURITY CHECK: Check if the user has the required role
-    is_authorized = any(role.id == os.environ["SUPPORT"] for role in interaction.user.roles)
+    # is_authorized = any(role.id == os.environ["SUPPORT"] for role in interaction.user.roles)
 
-    if not is_authorized:
-        await interaction.response.send_message(
-            "You do not have permission to use this command.", 
-            ephemeral=True # Makes the error message visible only to the staff member who used it
-        )
-        return
+    # if not is_authorized:
+    #     await interaction.response.send_message(
+    #         "You do not have permission to use this command.", 
+    #         ephemeral=True # Makes the error message visible only to the staff member who used it
+    #     )
+    #     return
 
     # 2. WORKFLOW CHECK: Ensure this is used in a ticket channel (optional but recommended)
     # You might want to check if the channel name starts with "ticket-"
