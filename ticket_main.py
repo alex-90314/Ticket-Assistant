@@ -38,6 +38,7 @@ def init_db():
 def close_db():
     conn.close()
 
+
 #password release
 @tree.command(name="release-password", description="[STAFF ONLY] Releases the game password to the user.")
 async def release_password_command(interaction: discord.Interaction):
@@ -112,6 +113,74 @@ async def release_authority(
     await interaction.response.send_message(
         f"✅ Authority on **{track}** released."
     )
+
+
+
+PRIORITY_CHOICES = [
+    app_commands.Choice(name="Critical", value="critical"),
+    app_commands.Choice(name="High", value="high"),
+    app_commands.Choice(name="Medium", value="medium"),
+    app_commands.Choice(name="Low", value="low")
+]
+
+@tree.command(name="hot-car", description="Request priority for an important car")
+@app_commands.describe(
+    car_id="Car ID that needs priority",
+    location="Current location of car",
+    reason="Why is this car urgent",
+    priority="Priority level"
+)
+async def hot_car(
+    interaction: discord.Interaction,
+    car_id: str,
+    location: str,
+    reason: str,
+    priority: app_commands.Choice[str]
+):
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO hot_car_requests
+            (car_id, location, reason, priority, requested_by)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            car_id.strip().upper(),
+            location.strip(),
+            reason.strip(),
+            priority.value,           # Use .value here
+            str(interaction.user.id)
+        ))
+    await interaction.response.send_message(
+        f"🔥 **Hot Car Request** submitted for car **{car_id}** at **{location}** "
+        f"with priority **{priority.name}**.",
+        ephemeral=False
+    )
+
+
+
+@tree.command(name="active-hotcars", description="List open hot car requests")
+async def active_hotcars(interaction: discord.Interaction):
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, car_id, location, priority, reason, requested_by
+            FROM hot_car_requests
+            WHERE status='open'
+            ORDER BY requested_at ASC
+        """)
+        rows = cur.fetchall()
+
+    if not rows:
+        return await interaction.response.send_message(
+            "🚫 No active hot car requests.", ephemeral=True
+        )
+
+    msg = "**🔥 Active Hot Car Requests:**\n"
+    for id_, car, loc, pri, reason, uid in rows:
+        msg += (
+            f"\n**{car}** @ {loc} — Priority: {pri}\n"
+            f"• Reason: {reason}\n"
+            f"• Requested by: <@{uid}>\n"
+        )
+    await interaction.response.send_message(msg)
 
 
 @client.event
