@@ -123,7 +123,7 @@ PRIORITY_CHOICES = [
     app_commands.Choice(name="Low", value="low")
 ]
 
-@tree.command(name="hot-car", description="Request priority for an important car")
+@tree.command(name="hot-car")
 @app_commands.describe(
     car_id="Car ID that needs priority",
     location="Current location of car",
@@ -157,7 +157,7 @@ async def hot_car(
 
 
 
-@tree.command(name="active-hotcars", description="List open hot car requests")
+@tree.command(name="active-hotcars")
 async def active_hotcars(interaction: discord.Interaction):
     with conn.cursor() as cur:
         cur.execute("""
