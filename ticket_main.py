@@ -1,7 +1,8 @@
-import os, discord
+import os, discord, psycopg2, atexit
 from discord.ext import commands
 from discord import app_commands
 from keep_alive import keep_alive
+from db import conn
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -12,6 +13,30 @@ tree = app_commands.CommandTree(client)
 
 AUTHORIZE = int(os.environ["SUPPORT"])
 
+
+def init_db():
+    with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS track_authority (
+                id SERIAL PRIMARY KEY,
+                track TEXT NOT NULL,
+                claimed_by TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                claimed_at TIMESTAMP DEFAULT NOW(),
+                released_at TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE
+            );
+        """)
+
+        cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS one_active_authority_per_track
+            ON track_authority(track)
+            WHERE is_active = TRUE;
+        """)
+
+@atexit.register
+def close_db():
+    conn.close()
 
 #password release
 @tree.command(name="release-password", description="[STAFF ONLY] Releases the game password to the user.")
@@ -39,46 +64,61 @@ async def release_password_command(interaction: discord.Interaction):
     )
 
 
-#ticket rename
-@client.event
-async def on_guild_channel_create(channel):
-    # Only look at text channels
-    if not isinstance(channel, discord.TextChannel):
-        return
-    
-    # # Check if new channel is in the ticket category
-    if channel.category_id != int(os.environ["CAT_ID"]):
-        return
 
+#db commands
+@tree.command(name="track-authority")
+async def track_authority(interaction: discord.Interaction, track: str, reason: str):
     try:
-        # check channel topic for the creator’s ID or username
-        creator_id = None
-        if channel.topic:
-            creator_id = channel.topic.strip()
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO track_authority
+                (track, claimed_by, reason)
+                VALUES (%s, %s, %s)
+            """, (track, str(interaction.user.id), reason))
 
-        # check permission overwrites for member
-        if not creator_id:
-            for overwrite in channel.overwrites:
-                if isinstance(overwrite, discord.Member):
-                    creator_id = overwrite.id
-                    break
-        
-        # Build the new name
-        new_name = f"ticket-{creator_id}" if creator_id else f"ticket-{channel.id}"
+        await interaction.response.send_message(
+            f"🚦 **Track {track}** claimed by {interaction.user.mention}"
+        )
 
-        # Rename the channel
-        await channel.edit(name=new_name)
-        print(f"Renamed channel to: {new_name}")
+    except psycopg2.errors.UniqueViolation:
+        await interaction.response.send_message(
+            f"❌ **Track {track}** already has active authority.",
+            ephemeral=True
+        )
 
-    except Exception as e:
-        print("Failed to rename ticket channel:", e)
+
+
+@tree.command(name="release-authority")
+async def release_authority(
+    interaction: discord.Interaction,
+    track: str
+):
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE track_authority
+            SET is_active=FALSE, released_at=NOW()
+            WHERE track=%s
+              AND claimed_by=%s
+              AND is_active=TRUE
+        """, (track, str(interaction.user.id)))
+
+        if cur.rowcount == 0:
+            await interaction.response.send_message(
+                "❌ You do not hold authority on this track.",
+                ephemeral=True
+            )
+            return
+
+    await interaction.response.send_message(
+        f"✅ Authority on **{track}** released."
+    )
 
 
 @client.event
 async def on_ready():
+    init_db()
     await tree.sync()
     print(f'Logged in as {client.user}!')
-
 
 keep_alive()
 client.run(os.environ["TOKEN"])
