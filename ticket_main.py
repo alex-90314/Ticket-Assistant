@@ -16,6 +16,7 @@ AUTHORIZE = int(os.environ["SUPPORT"])
 
 def init_db():
     with conn.cursor() as cur:
+        # Track authority table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS track_authority (
                 id SERIAL PRIMARY KEY,
@@ -27,11 +28,24 @@ def init_db():
                 is_active BOOLEAN DEFAULT TRUE
             );
         """)
-
         cur.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS one_active_authority_per_track
             ON track_authority(track)
             WHERE is_active = TRUE;
+        """)
+
+        # Hot car requests table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS hot_car_requests (
+                id SERIAL PRIMARY KEY,
+                car_id TEXT NOT NULL,
+                location TEXT NOT NULL,
+                reason TEXT,
+                priority TEXT DEFAULT 'high',
+                requested_by TEXT NOT NULL,
+                requested_at TIMESTAMP DEFAULT NOW(),
+                status TEXT DEFAULT 'open'
+            );
         """)
 
 @atexit.register
@@ -137,18 +151,25 @@ async def hot_car(
     reason: str,
     priority: app_commands.Choice[str]
 ):
-    with conn.cursor() as cur:
-        cur.execute("""
-            INSERT INTO hot_car_requests
-            (car_id, location, reason, priority, requested_by)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            car_id.strip().upper(),
-            location.strip(),
-            reason.strip(),
-            priority.value,           # Use .value here
-            str(interaction.user.id)
-        ))
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO hot_car_requests
+                (car_id, location, reason, priority, requested_by)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (
+                car_id.strip().upper(),
+                location.strip(),
+                reason.strip(),
+                priority.value,
+                str(interaction.user.id)
+            ))
+    except Exception as e:
+        await interaction.response.send_message(
+            f"❌ Failed to insert hot car request: {e}", ephemeral=True
+        )
+        return
+
     await interaction.response.send_message(
         f"🔥 **Hot Car Request** submitted for car **{car_id}** at **{location}** "
         f"with priority **{priority.name}**.",
